@@ -1,12 +1,12 @@
 # Explainable Multi-Stage Deepfake Detection Framework — Technical Specification
 
-版本：1.0｜日期：2026-10-21（Asia/Taipei）｜狀態：Awaiting Review，尚未授權 To Tickets 或 Implementation。
+版本：1.1｜日期：2026-10-21（Asia/Taipei）｜狀態：Awaiting Review，尚未授權 To Tickets 或 Implementation。
 
 需求基準：Repo 的 `Deepfake_專題開發規格_v1.0.md`（21 輪 Product Discovery 已完成）。本文件將已確認需求轉為技術合約，不重新開啟產品訪談。需求文件優先於本文件；新增技術選擇皆須通過本文件列出的驗收。
 
-來源快照：Git HEAD `8ae678121c1db4a25681cd88fb6835a5c3e1f5d6`；需求文件 SHA-256 `cd271993f33671a103949fa12bf0e3a01d08573e4133e00a677d8f8bb776058a`。需求文件於盤點時為未追蹤檔案，因此 HEAD 本身不包含該需求，須連同上述雜湊辨識版本。
+初版來源快照：Git HEAD `8ae678121c1db4a25681cd88fb6835a5c3e1f5d6`；需求文件 SHA-256 `cd271993f33671a103949fa12bf0e3a01d08573e4133e00a677d8f8bb776058a`。需求文件於盤點時為未追蹤檔案，因此 HEAD 本身不包含該需求，須連同上述雜湊辨識版本。
 
-本次只新增規格文件及發布規格 Issue；不建立實作 tickets、不修改既有應用程式碼、不安裝套件、不下載模型或資料集、不操作遠端 GPU。
+初版及本次修訂僅新增／更新規格文件及發布／同步規格 Issue；不建立實作 tickets、不修改既有應用程式碼、不安裝套件、不下載模型或資料集、不操作遠端 GPU。
 
 ## Problem Statement
 
@@ -73,8 +73,8 @@ FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic An
 
 | 唯讀盤點項目 | 2026-10-21 觀察 | 技術意涵 |
 |---|---|---|
-| Repo | 已追蹤 README 與忽略規則；需求文件未追蹤 | 無既有應用、ADR、Domain Glossary、測試或介面可沿用；沿用需求用語 |
-| 資料與模型 | 本 Repo 中無 CSV、資料集、權重、Detector 推論程式；使用者補充 score.csv、權重、推論入口位於另一個以 DeepfakeBench 為基底修改的 Repo | 外部資產已由使用者確認存在，本次未檢查內容、三模型涵蓋範圍與可執行性；阻塞是取得位置與驗證，不是認定資產不存在 |
+| Repo | 初次盤點僅 README 與忽略規則；需求／規格現已由使用者提交為 2f4133f | Cascadeguard 無既有應用、ADR 或測試；外部 Repo 已確認有可沿用的資料集推論、聚合、雙門檻與測試先例；產品用語仍以需求基準為準 |
+| 資料與模型 | 本 Repo 中無 CSV、資料集、權重、Detector 推論程式；使用者補充 score.csv、權重、推論入口位於另一個以 DeepfakeBench 為基底修改的 Repo | 外部原始碼與設定已唯讀檢查；此 checkout（排除 .git／.venv）未找到 CSV／權重實體，來源位置仍待確認；未執行模型，不能聲稱三模型 Live 可用 |
 | 依賴設定 | 無套件清單、lockfile、CI、部署設定 | 本文依賴為建議選型，未驗證版本相容性 |
 | 本機 | Windows、Python 3.11.7；Git、Node 可用 | CPU 核心可先以 Python 3.11 驗證；不要求 Node 建置流程 |
 | 本機 Python | 未找到 FastAPI、Pydantic、PyTorch、pytest、NumPy、pandas、OpenCV | 本次無可執行應用測試；未安裝任何依賴 |
@@ -84,9 +84,9 @@ FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic An
 
 ### 2. 模組責任與依賴方向
 
-採單機模組化應用，預設同一 Python 環境、單一 API process。只有 Detector 上游依賴確實衝突時，才以同合約的受控子程序隔離；不預建模型服務平台。
+採單機模組化應用、單一 API process。CPU 核心與 API 使用獨立輕量環境；既有 DeepfakeBench 模型執行環境先保留，採同機受控子程序與 JSON 合約作整合預設，以隔離 registry、全域路徑及依賴副作用。若後續相容性驗證通過，可簡化為同 process Adapter；不預建 HTTP 模型微服務。
 
-外部模型來源採使用者既有的 DeepfakeBench 修改版 Repo；暫定保留獨立 checkout，記錄 remote、commit SHA 與未提交修改，先唯讀確認其推論入口、預處理、聚合及 score.csv 血緣，再決定最薄的 Adapter 接法。Cascadeguard 不重寫已可用的模型流程，不先合併整個 Repo、不預先引入 submodule；以設定引用外部 checkout、權重及分數位置。僅在依賴相容時直接呼叫；不相容時再選受控子程序。此為待檢查外部 Repo 後可修訂的技術決定，並不表示目前已完成整合。
+外部模型來源保留為獨立 checkout，固定可辨識 revision 並記錄未提交修改；以設定引用 checkout、Python executable、權重及分數位置，不整庫搬入 Cascadeguard、不先引入 submodule。既有模型 forward、影片 ID wrapper、分數聚合與資料子集能力可作 Adapter 來源；既有兩階段 CLI 是資料集評估先例，不直接當作新系統的控制器。實作時在 Cascadeguard 建立最薄的橋接，子程序每次只處理 Controller 指定的一個 Detector，回傳原始影格證據與版本化輸出；不呼叫會自行完成兩階段的 CLI 冒充惰性 Adapter。模型初始化／推論限制不等於禁止 import Python class，但現有 eager registry 的模組依賴不能進 CPU 核心。外部原始碼可讀不表示權重可載入或影片流程已跑通。
 
 ```mermaid
 flowchart TD
@@ -120,7 +120,7 @@ flowchart TD
 
 主要測試入口是 Analysis Service 的「分析請求 + 已解析 Policy + 分數提供者 → AnalysisResult／DecisionTrace」。Controller 只依賴單一取分契約：要求指定 Detector 對指定樣本及分析範圍回傳 DetectorOutput，或回傳具錯誤碼的失敗。Live 與 Replay 都必須走這個入口；研究批次逐樣本呼叫同一控制器。
 
-Live 的輸入是已通過校驗的影片與人物範圍；Replay 的輸入是資料集、split、sample_id 及分數合約。標籤只提供 Research Engine 算指標，不傳給控制器。不得依 label 決定門檻、排序或退出。
+現有外部資料集推論 helper 會搬移 label tensor，這是評估流程的介面需求，不代表產品有真實標籤。新 Live 橋接必須驗證三模型 inference 分支不以 ground truth 路由或計分；必要的結構性 placeholder 需標示非真值，禁止混入研究標籤或結果。Live 的輸入是已通過校驗的影片與人物範圍；Replay 的輸入是資料集、split、sample_id 及分數合約。標籤只提供 Research Engine 算指標，不傳給控制器。不得依 label 決定門檻、排序或退出。
 
 一致性定義：在 Policy、分析範圍與 DetectorOutput 數值及合約相同時，兩個 Provider 產生相同 verdict、stage action、退出位置及跳過原因。request_id、時間戳、來源、實測延遲自然不同，不要求整份 JSON 位元組相同。真實模型的非確定性另由模型證據記錄，不能承諾跨硬體 bitwise 一致。
 
@@ -139,7 +139,7 @@ DetectorOutput 只代表成功結果；失敗使用結構化 AnalysisError，不
 | schema_version | integer，必填 | 1 |
 | detector_id | string，必填 | xception、ucf、sbi；只能解析已註冊 Adapter |
 | sample_id | string，必填 | 分析單位的穩定 ID；跨模型相同 |
-| model_version / checkpoint_hash | string，必填 | 版本與實際權重 SHA-256；Replay 舊資料缺 hash 時限研究使用並警告，禁止宣稱 Live 相容 |
+| model_version / checkpoint_hash | string／string 或 null，必填 | Live 必有版本與實際權重 SHA-256；Replay 舊資料缺 hash 時明確 null、限探索研究並警告，禁止宣稱正式合約／Live 相容 |
 | fake_score | finite float，必填 | 正規化後，越大越假；未做機率校正 |
 | score_direction | enum，必填 | Controller 僅接受 larger_is_faker |
 | score_unit | enum，必填 | unit_interval、logit 或 raw；每模型門檻使用相同單位 |
@@ -155,7 +155,7 @@ DetectorOutput 只代表成功結果；失敗使用結構化 AnalysisError，不
 
 分數方向轉換由 Adapter／CSV 匯入層負責且保留原值及原方向供稽核。原分數越小越假時，unit_interval 可採 1−raw；logit／raw 採 −raw，單位和 transform version 必須一致。轉換是方向統一，不是 calibration；不對 raw 任意 min-max 壓成機率。unit_interval 必須在 [0,1]；其他單位只要求有限數值。
 
-Live 預處理不得為三模型強迫共用不相容的人臉 crop 或輸入尺寸。可共用影片 metadata／解碼快取；模型專用抽樣與 crop 由 Adapter 定義並指紋化。新整合的 frame 模型預設候選為固定均勻時間抽樣及有效影格分數算術平均，但僅在 upstream 檢查與 smoke 通過後凍結；不覆寫既有 CSV 的原聚合方式。臉品質最低值、抽樣數及主要人物選取規則均是 Phase 0 待定設定；未凍結前不得發布相容的正式 Policy。
+已確認外部 Xception／UCF 使用 256 解析度、32 個 test frames、mean/std=[0.5,0.5,0.5]，其既有 Cascade 先驗證共享輸入再對同一 Dataset 建子集。SBI 設定雖同為 256／32 frames，mean/std 不同且啟用 landmark，因此不能直接接入此共享 tensor 契約；需獨立正規化／必要欄位，並驗證推論分支是否實際需要 landmark。Live 預處理不得為三模型強迫共用不相容的人臉 crop 或輸入尺寸。可共用影片 metadata／解碼快取；模型專用抽樣與 crop 由 Adapter 定義並指紋化。新整合的 frame 模型預設候選為固定均勻時間抽樣及有效影格分數算術平均，但僅在 upstream 檢查與 smoke 通過後凍結；不覆寫既有 CSV 的原聚合方式。臉品質最低值、抽樣數及主要人物選取規則均是 Phase 0 待定設定；未凍結前不得發布相容的正式 Policy。
 
 #### 4.2 Policy
 
@@ -210,7 +210,7 @@ AnalysisResult 包含工作狀態、結果及唯一一份 DecisionTrace；UI 與
 
 匯入分兩步：稽核來源並輸出問題清單；建立凍結 cohort。跨模型必須以 ID join，不能依列順序對齊。重複鍵、標籤矛盾、split 矛盾、無效分數、無法證明相同影片或人物範圍均阻止正式 benchmark。缺模型樣本預設阻止執行；若明確選用共同完整交集，需保存排除清單、原因、每類數量，且所有方法使用相同交集。禁止 silent inner join 或逐方法 dropna。
 
-frame-level 原資料必須另經可重現聚合，保留 frame ID、時間與有效影格數；未確認原聚合規則不能假設已是 video-level。Metadata 缺失可做探索，但不能聲稱正式三模型驗收完成。
+已確認外部現有 exporter 產生 image_path、label、probability 三欄的影格級 predictions CSV；使用者所指 score.csv 尚未取得，不能假設就是此格式。既有 CSV 缺 video_name、split、detector_id、checkpoint、預處理與時間證據，匯入需要原 dataset JSON／當次設定建立 image_path→完整 video identity 對照及 companion manifest。video_name 是 opaque ID，不以猜測路徑片段代替；dataset_id 應作 namespace，不能跨資料集假定 video_name 全球唯一。若無法還原 ID 與聚合血緣，正式 Replay gate 仍 blocked。frame-level 原資料必須另經可重現聚合，保留 frame ID、時間與有效影格數；未確認原聚合規則不能假設已是 video-level。Metadata 缺失可做探索，但不能聲稱正式三模型驗收完成。
 
 分割至少以影片／原始來源群組隔離，衍生偽造版本及影格不得跨 split；有 subject_id 時檢查身分隔離。既有模型的訓練集重疊風險亦需揭露，未知不能稱無洩漏。Train 不用於門檻搜尋；Validation 用於搜尋與凍結；Test 在最終評估開封。
 
@@ -229,7 +229,7 @@ frame-level 原資料必須另經可重現聚合，保留 frame ID、時間與�
 
 #### 6.1 計數及分母
 
-採需求基準的命名：FAR=真實影片誤判為假；FRR=假影片誤判為真。避免套入其他領域相反的縮寫解釋，報告必須同時列中文及公式。
+採需求基準的命名：FAR=真實影片誤判為假；FRR=假影片誤判為真。外部既有 metrics 的命名恰好相反：legacy FAR=假判真，legacy FRR=真判假。匯入舊報告時必須記 legacy_metric_definition 並按公式轉接，不能原封不動搬 far／frr 欄。新系統維持已確認需求的定義，報告必須同時列中文及公式。
 
 在固定完整有效 cohort 中，令 R、F 為真實／偽造數，N=R+F。Rr／Rf／Ru 為真實樣本被判真／假／拒判；Fr／Ff／Fu 為偽造樣本被判真／假／拒判。D=Rr+Rf+Fr+Ff，E=Rf+Fr。
 
@@ -339,7 +339,7 @@ PDF（P1）由不可變 Trace 與可用 evidence 產生，包含 input SHA-256 �
 | Testing | pytest；真實 Live smoke 另 opt-in | CPU suite 不依賴 GPU、網路、權重 |
 | Charts／P1 | 靜態圖優先 Matplotlib；Grad-CAM 套件及 PDF renderer 依模型與字體驗證再選 | 不為尚未交付 P1 將重依賴加入核心啟動路徑 |
 
-套件名稱是建議，並非本機已安裝或已驗證相容。依賴鎖定分 CPU 與模型環境；以最少工具管理虛擬環境，不同上游有衝突才分開。對外模型合約保持相同。
+套件名稱是建議，並非本機已安裝或已驗證相容。外部 Repo 的 Docker／安裝腳本使用 torch 1.12.0、CUDA 11.3 及 Python 3.7 相關設定，而外部 .venv metadata 記 Python 3.12.2／torch 2.14.0；requirements 僅六筆且未列完整推論依賴。這些是互不等價的設定／安裝 metadata，不能當成同一套已驗證環境；此次未啟動該 venv 或 Docker。既有 evaluation 還使用 torch.load 的 weights_only 參數，需在選定 torch runtime 驗證載入相容性。先保留模型獨立環境，依成功執行紀錄確立並鎖定；對外模型合約保持相同。
 
 首選實驗室單 GPU 主機，在允許的 Python／CUDA 環境運行。是否可安裝、常駐、讀取權重及展示當日開機皆需助教確認；瀏覽器遠端使用優先授權內網或 SSH tunnel，預設 loopback。未建認證前不得當公開上傳服務部署。Docker、反向代理與雲端都不是 MVP 必備依賴。
 
@@ -385,7 +385,7 @@ P1 只對宣告已交付項目驗收：時間軸須對應實際影格；Grad-CAM
 
 ### 1. 已確認的測試邊界
 
-使用者於 2026-10-21 確認以下三個邊界。Repo 沒有既有測試或可沿用 seam；將必要測試集中於最高可觀測入口，不為每個私有 helper 建鏡像測試。
+使用者於 2026-10-21 確認以下三個邊界。Cascadeguard 沒有既有測試；外部 Repo 已有 unittest 聚合、雙門檻、影片 identity／subset 及共享輸入設定測試，作為 prior art。沿用已確認的三個最高層測試邊界，不另新增私有 helper seam，也不把外部測試存在當成已執行通過。
 
 | 邊界 | 被測模組／方式 | 可驗證行為 |
 |---|---|---|
@@ -411,7 +411,7 @@ P1 只對宣告已交付項目驗收：時間軸須對應實際影格；Grad-CAM
 
 ### 3. 研究必要案例
 
-手算上述 8 筆樣本的主指標與 conditional 指標；覆蓋全拒判、空 cohort、缺單一類別、耗時缺值及未定義分母。fixture 只作測試，檔名／manifest 清楚標 synthetic，不進正式圖表。
+既有外部 FAR／FRR 測試使用對稱錯誤數，無法揭露命名顛倒；新系統另用不對稱 fixture：R=3、F=2、Rf=1、Fr=0，應得本規格 FAR=1/3、FRR=0，legacy FAR=0、legacy FRR=1/3。手算上述 8 筆樣本的主指標與 conditional 指標；覆蓋全拒判、空 cohort、缺單一類別、耗時缺值及未定義分母。fixture 只作測試，檔名／manifest 清楚標 synthetic，不進正式圖表。
 
 CSV 測試須覆蓋列順序打亂但 ID 對齊結果相同、重複鍵、跨模型 label／split 衝突、漏分數、frame 未聚合、方向單位不明、不同 subject／video 跨 split、顯式交集排除清單。正式 run 不得在一個方法失敗後縮 cohort。
 
@@ -427,7 +427,7 @@ OOM／Timeout／權重缺失可先以可控故障注入驗證錯誤路由，再�
 
 ### 5. 驗收紀錄
 
-未來每個 Gate 記錄實際命令、環境、測試資料來源、通過／失敗／blocked 數與原因及證據。此規格階段只檢查文件完整性與 Repo 差異，沒有應用或模型測試可執行；不將規格檢查稱為系統測試通過。
+未來每個 Gate 記錄實際命令、環境、測試資料來源、通過／失敗／blocked 數與原因及證據。此規格階段僅做唯讀原始碼／metadata 盤點與文件檢查，沒有執行外部測試、模型或新系統測試；不將原始碼閱讀或規格檢查稱為系統測試通過。
 
 ## Out of Scope
 
@@ -446,8 +446,8 @@ OOM／Timeout／權重缺失可先以可控故障注入驗證錯誤路由，再�
 | ID | 尚未解決的技術問題 | 暫定決策／風險 | 解除證據與責任 |
 |---|---|---|---|
 | U1 | 實驗室 GPU 可用性 | 無法保證 Live P0；本機 MX350 不替代可行性驗證 | Developer B 向助教確認權限、環境、常駐及展示日可用性，Phase 0 留紀錄 |
-| U2 | 外部 score.csv 的位置、三模型涵蓋範圍與對齊 | 使用者確認存在於 DeepfakeBench 修改版 Repo；尚未唯讀驗證，三模型 Replay／正式研究驗收仍待查證 | Developer A 取得 Repo 路徑／URL、固定 revision、分數來源、manifest、cohort／split／版本稽核 |
-| U3 | 外部權重／推論入口支援哪些 Detector、能否分析新影片 | 使用者確認有權重與入口，但尚未驗證是否只支援資料集評估；優先沿用已可用流程，若均未驗證則依基準先調查 SBI、候補 Xception | Developer B 盤點修改版 Repo revision、未提交改動、授權、checkpoint、依賴及一個影片 smoke 後選定 |
+| U2 | 外部 score.csv／checkpoint 實體位置與三模型涵蓋範圍 | Repo 路徑已取得，原始碼已查；此 checkout 掃描未找到資產，不否定其他主機或未同步位置存在 | Developer A 取得實際 CSV／設定／資料血緣，B 取得權重位置與 hash；不直接掃描其他磁碟或下載 |
+| U3 | 從資料集評估跨到新 MP4 上傳的整合能力 | 已確認三模型類別與資料集入口、兩模型 Cascade；未見完整新 MP4→結果服務，尚未驗證載入／推論 | B 優先驗證既有 Xception／UCF 路徑可否重用，同時參照 SBI 既有訓練文件；首個 Detector 以實際可用證據選定，保留基準 SBI 優先可行性調查 |
 | U4 | 上游 Python／CUDA／預處理相容性 | CPU Python 3.11 起步，模型環境可能隔離；精確版本未鎖定 | 模型合約、可安裝環境及 smoke，禁止憑記憶捏造版本 |
 | U5 | Quick／Forensic 數值約束 | max_far／max_frr／min_coverage TBD；暫不發布 verified Policy | A 與 B 依 Validation Baseline 凍結約束及選擇紀錄，Test 前完成 |
 | U6 | 抽樣／聚合／主要人物與品質規則 | 上游與 CSV 語意未確認，錯誤選取會破壞跨來源一致性 | B 凍結設定與指紋，A 驗證 CSV 同一分析範圍；未知則禁止移轉 Policy |
@@ -458,7 +458,26 @@ OOM／Timeout／權重缺失可先以可控故障注入驗證錯誤路由，再�
 
 上述為技術待驗證事項，不重開已完成的產品訪談。不因未決細節阻止形成規格；但相應驗收不得被提前標示完成。
 
-### 2. 容量與停損
+### 2. 外部 Repo 唯讀稽核（v1.1）
+
+檢查位置：`D:\Programming_File\School\114-2\IM_Project\Cascade-DeepfakeBench`；外部 HEAD：`ff37e5c46b77fc6c07de8d1f5de90863d45fd817`。此為來源證據路徑，不是新系統實作目錄要求。Git worktree status 查詢受目前環境限制失敗（cannot come back to cwd: Permission denied），因此未驗證 checkout 是否 clean，不能僅用 HEAD 保證讀到的內容全部已提交。未修改該 Repo，未執行其程式、測試或環境。
+
+| 證據來源 | 已確認內容 | 沿用／修訂規則 |
+|---|---|---|
+| `cascade/inference.py`、`cascade/video_scoring.py` | model.eval + no_grad、pred_dict prob、依影片算術平均、有限 [0,1] 檢查；中間階段門檻含等號 | 可作最薄 Adapter 來源；模型 score 不視為校正機率；XAI 必須在獨立可開梯度流程中執行 |
+| `cascade/test.py`、`cascade/config.py` | 固定 Xception→UCF，只對 uncertain subset 建立 UCF，之後單門檻強制二元；共享設定檢查 | 惰性執行與 cohort 思路可沿用；新 Controller 須任意 Policy 排序、所有階段雙門檻、末端 abstain，不直接沿用舊 final rule |
+| `cascade/data/video_identity_dataset.py`、`training/dataset/abstract_dataset.py` | 完整 video_name、batch 對齊、video subset；ID 源於 dataset JSON；Dataset 僅 train／test mode | ID 視 opaque 並加 dataset namespace；產品 Validation 是研究 manifest split，不能因底層叫 test mode 就視為最終 Test，須追溯實際 JSON cohort |
+| `cascade/metrics.py`、`cascade/README.md` | FAR／FRR 與需求命名相反；final metrics 拒絕 UNCERTAIN | 保留 legacy 定義作稽核；新研究指標依本規格公式，不能直接使用 legacy final metrics |
+| `training/test.py` | detector YAML／dataset／weights CLI、frame predictions 三欄 exporter；資料集推論而非上傳服務 | exporter 是資料來源先例；缺 metadata 需以 manifest 還原；不將參數 --weights_path 視為權重已存在 |
+| `training/detectors/__init__.py` 與三模型類別 | registry eager import 多種 Detector；Xception 初始化還載 backbone pretrained；SBI 為 EfficientNet-B4，prob 為 softmax class 1 | 模型環境與 CPU 核心隔離；權重前置清單包含 backbone 與完整 checkpoint，無實體仍不可用 |
+| `preprocessing/preprocess.py` | 可讀影片、抽影格、dlib 對齊、81 點 landmark；逐影格選最大臉 | 可重用算法，不直接當多人追蹤；缺少受控上傳、人物一致性、deadline、清理與錯誤合約，均需後續整合驗收 |
+| `cascade/tests/` | unittest 覆蓋影片均值、門檻等號、identity／subset、共享設定、舊二元 final metrics | 已存在的測試 prior art；新系統對 abstain 與 FAR／FRR 需改 expected 行為；本次未跑測試 |
+| `docs/sbi/` | 歷史文件記載 SBI 訓練／測試與 provenance 缺口 | 只作歷史敘述證據；log／CSV／checkpoint 未在此 checkout 找到，本文不把文件列出的 AUC 當已驗證研究成果 |
+| 全 Repo 資產副檔名掃描 | 排除 .git／.venv，未找到 .csv／.pth／.pt／.ckpt／.safetensors；權重目錄只有 readme | 請使用者提供原始資產所在主機／位置，不新增下載或任意擴大檔案搜索 |
+
+修訂仍維持三個已確認測試邊界；只更新證據與必要轉接，沒有開始 To Tickets 或實作。
+
+### 3. 容量與停損
 
 Developer A 沿用 Research & Decision Engine 責任；Developer B 沿用 Inference & Application 責任；合約、指標、整合、錄影共同審查。這是既有分工，不代表已建立工作 tickets。
 
@@ -466,7 +485,7 @@ Developer A 沿用 Research & Decision Engine 責任；Developer B 沿用 Infere
 
 先保護研究可重現、真實單模型、Trace、簡報影片。P1 一旦威脅 P0 即延後；新增 P0 必須換出等量工作或增加人力。未通過 Gate 要報 blocked／failed，不能用「程式已寫好」代替實際驗收。
 
-### 3. 追蹤、Review 與下一步
+### 4. 追蹤、Review 與下一步
 
 本規格依已安裝 Matt Pocock to-spec 流程撰寫，使用者已確認測試邊界與 GitHub Issues／ready-for-agent 標籤。發布內容須包含完整規格，而非僅外部連結；Tracker 使用規格 Issue，不在此階段建立 implementation tickets。
 
