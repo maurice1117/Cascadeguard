@@ -1,8 +1,8 @@
 # Explainable Multi-Stage Deepfake Detection Framework — Technical Specification
 
-版本：1.1｜日期：2026-10-21（Asia/Taipei）｜狀態：Awaiting Review，尚未授權 To Tickets 或 Implementation。
+版本：1.2｜日期：2026-10-21（Asia/Taipei）｜狀態：Awaiting Review，尚未授權 To Tickets 或 Implementation。
 
-需求基準：Repo 的 `Deepfake_專題開發規格_v1.0.md`（21 輪 Product Discovery 已完成）。本文件將已確認需求轉為技術合約，不重新開啟產品訪談。需求文件優先於本文件；新增技術選擇皆須通過本文件列出的驗收。
+需求基準：Repo 的 `Deepfake_專題開發規格_v1.0.md`（21 輪 Product Discovery 已完成）。本文件將已確認需求轉為技術合約，不重新開啟產品訪談。需求文件與 2026-10-21 使用者 Review 修訂共同構成需求基準：成功分析的最終結果必須二元，前段雙門檻、末段單門檻；此明確修訂優先於原需求及 v1.0／v1.1 的末端拒判描述。其餘需求不變；新增技術選擇皆須通過本文件列出的驗收。
 
 初版來源快照：Git HEAD `8ae678121c1db4a25681cd88fb6835a5c3e1f5d6`；需求文件 SHA-256 `cd271993f33671a103949fa12bf0e3a01d08573e4133e00a677d8f8bb776058a`。需求文件於盤點時為未追蹤檔案，因此 HEAD 本身不包含該需求，須連同上述雜湊辨識版本。
 
@@ -10,7 +10,7 @@
 
 ## Problem Statement
 
-一般使用者需要對短影片取得可理解的真偽傾向；鑑識人員需要知道判斷用了哪些模型、哪些門檻，以及哪些證據仍不足。研究者需要以一致資料、拒判規則與成本定義，比較 Xception、UCF、SBI 的多階段決策與 Always-Run Ensemble。
+一般使用者需要對短影片取得可理解的真偽傾向；鑑識人員需要知道判斷用了哪些模型、哪些門檻，以及哪些證據仍不足。研究者需要以一致資料、二元決策規則與成本定義，比較 Xception、UCF、SBI 的多階段決策與 Always-Run Ensemble。
 
 目前 Repo 只有需求文件、README 與 Python 類型的忽略規則，尚無上述系統。若先做展示頁或分別實作 Live／Replay 邏輯，容易出現展示與研究判斷不一致、預先執行全部模型卻宣稱 Early Exit、將離線估算冒充現場效能等問題。
 
@@ -18,9 +18,9 @@
 
 ## Solution
 
-建立單機、模組化的 Python 系統：Research Engine 校驗分數並選出版本化 Policy；Stage Controller 依 Policy 惰性取得 DetectorOutput，以雙門檻決定提前退出或繼續，產生 DecisionTrace。Live Inference 使用真實 Detector Adapter，Offline Replay 使用唯讀分數提供者，兩者共用控制器與判斷規則。
+建立單機、模組化的 Python 系統：Research Engine 校驗分數並選出版本化 Policy；Stage Controller 依 Policy 惰性取得 DetectorOutput，前段以雙門檻決定提前退出或繼續，最後階段以單門檻完成二元分類，產生 DecisionTrace。Live Inference 使用真實 Detector Adapter，Offline Replay 使用唯讀分數提供者，兩者共用控制器與判斷規則。
 
-FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic Analysis，以及研究結果展示。所有結果明示 Live／Replay、模式、適用人物、版本與限制。不能分析與成功計算但拒判是兩種狀態。XAI 與 PDF 消費既有分析證據，作為可獨立交付的擴充。
+FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic Analysis，以及研究結果展示。所有結果明示 Live／Replay、模式、適用人物、版本與限制。成功分析必為 Likely Real 或 Likely Fake；不能分析為獨立失敗狀態，不構成第三種分類。XAI 與 PDF 消費既有分析證據，作為可獨立交付的擴充。
 
 研究成功的最低標準是公平、可重現的 Baseline 報告；若最佳化 Cascade 未改善成本或無可行 Policy，也必須保留結果。Quick 10 秒內及 Forensic 30–60 秒只是待量測目標，不是現有服務保證。
 
@@ -29,14 +29,14 @@ FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic An
 1. 身為一般使用者，我希望從單一入口上傳本地 MP4，以便開始分析短影片。
 2. 身為一般使用者，我希望預設使用 Quick Scan，以便以最少操作取得判斷。
 3. 身為一般使用者，我希望看到真實處理階段，以便分辨分析中、完成與失敗。
-4. 身為一般使用者，我希望看到 Likely Real、Likely Fake 或 Uncertain，以便理解系統的真偽傾向與保留判斷。
-5. 身為一般使用者，我希望不能分析時明確顯示 Unable to Analyze，以便避免將失敗誤認為真實或拒判。
+4. 身為一般使用者，我希望看到 Likely Real 或 Likely Fake，以便取得最終二元真偽傾向。
+5. 身為一般使用者，我希望不能分析時明確顯示 Unable to Analyze，以便避免將失敗誤認為真實或偽造。
 6. 身為一般使用者，我希望看到定性風險與簡明理由，以便理解結果而不誤讀為保證機率。
 7. 身為一般使用者，我希望格式、容量及長度錯誤有可理解的提示，以便修正輸入。
 8. 身為一般使用者，我希望知道結果來自 Live Inference 或 Offline Replay，以便理解其證據來源。
 9. 身為一般使用者，我希望影片和人臉資料只在本地最小留存，以便減少資料外流。
 10. 身為鑑識人員，我希望從 Quick 切換到 Forensic Analysis，以便採用獨立且重視誤判限制的 Policy。
-11. 身為鑑識人員，我希望看到所用 Policy 的版本、順序和雙門檻，以便重建判斷過程。
+11. 身為鑑識人員，我希望看到所用 Policy 的版本、順序、前段雙門檻和末段單門檻，以便重建判斷過程。
 12. 身為鑑識人員，我希望看到各階段實際執行、跳過或失敗的原因，以便檢查 Early Exit 是否真的節省工作。
 13. 身為鑑識人員，我希望看到模型分數及其單位，以便避免將 raw score 當作校正機率。
 14. 身為鑑識人員，我希望結果明示所選人物，以便避免將單一人臉判定套用到整段多人影片。
@@ -50,7 +50,7 @@ FastAPI 與輕量 Web UI 提供預設 Quick Scan、獨立 Policy 的 Forensic An
 22. 身為研究者，我希望分數方向、抽樣、預處理及聚合版本被記錄，以便判定 Policy 是否可移轉到 Live。
 23. 身為研究者，我希望只以 Validation 搜尋門檻及排序，以便保護最終 Test 的獨立性。
 24. 身為研究者，我希望比較三個 Single Detector、Always-Run Ensemble、Fixed-Order 及 Optimized Cascade，以便判斷方法的實際貢獻。
-25. 身為研究者，我希望看到 FAR、FRR、Coverage、Selective Risk 的分子分母與拒判數，以便正確解讀結果。
+25. 身為研究者，我希望看到 FAR、FRR、Accuracy、Error Rate 的分子分母與失敗數，以便正確解讀結果。
 26. 身為研究者，我希望區分 Detector 呼叫數、估計成本與實測端到端延遲，以便避免混淆成本證據。
 27. 身為研究者，我希望保存搜尋空間、資料雜湊及選擇規則，以便重現 Policy 選擇。
 28. 身為研究者，我希望看到 Pareto 候選與無可行解狀態，以便如實報告取捨。
@@ -110,9 +110,9 @@ flowchart TD
 | Research Engine | CSV 校驗、cohort、Baseline、Validation Grid Search、指標、Pareto、Policy 凍結、可重現報告 | 上傳影片、訓練 Detector、執行 Grad-CAM |
 | Detector Adapter / Live Provider | 相依初始化、模型專用預處理、抽樣、聚合、分數方向正規化、計時、錯誤轉換 | 決定門檻、排序、最終 verdict |
 | Replay Provider | 按樣本和合約查詢已校驗分數，回傳同型 DetectorOutput；保留原始來源 | 呼叫模型、補造缺分數、宣稱 GPU 耗時 |
-| Stage Controller | 驗證 Policy、逐階段取得分數、雙門檻、Early Exit、失敗即停、完整 Trace | HTTP、檔案上傳、XAI、模型實作 |
+| Stage Controller | 驗證 Policy、逐階段取得分數、前段雙門檻／末段單門檻、Early Exit、失敗即停、完整 Trace | HTTP、檔案上傳、XAI、模型實作 |
 | Decision Trace | 記錄可驗證的決策事實與 Policy 快照，供 UI／報告共用 | 隱藏 fallback、推測未執行模型分數 |
-| Analysis Service / FastAPI | 輸入校驗、檔案生命週期、工作狀態、Policy 選擇、呼叫控制器、序列化 | 重寫雙門檻判斷、依前端輸入任意載入權重 |
+| Analysis Service / FastAPI | 輸入校驗、檔案生命週期、工作狀態、Policy 選擇、呼叫控制器、序列化 | 重寫門檻判斷、依前端輸入任意載入權重 |
 | Web UI | 單一上傳、Quick／Forensic、來源標籤、進度、判斷、Trace、研究結果 | 自行算 verdict 或調用模型 |
 | XAI / Reporting | 使用已執行模型與影格證據產生解釋／PDF，保留來源和警語 | 修改 verdict、默默跑完所有模型 |
 
@@ -164,14 +164,14 @@ DetectorOutput 只代表成功結果；失敗使用結構化 AnalysisError，不
 | policy_id / version / schema_version | string／string／integer | 版本不可原地覆寫；發布後唯讀 |
 | mode | quick 或 forensic | 兩模式獨立 Policy，不能只換 UI 名稱 |
 | ordered_detectors | 非空且不重複的 detector_id list | 支援一至三模型；MVP Live 可為單模型，Replay 可為三模型 |
-| stages | 與順序一對一的 list | 每筆含 detector_id、lower_threshold、upper_threshold、expected_score_contract |
+| stages | 與順序一對一的 list | 每筆含 detector_id、stage_type、expected_score_contract；前 N−1 筆 stage_type=early_exit，必有 lower_threshold／upper_threshold；最後一筆 stage_type=terminal，必有 decision_threshold，且不接受雙門檻欄位 |
 | expected_score_contract | 版本、權重、方向、單位、轉換、預處理、抽樣、聚合、prediction_unit、scope 設定 | 逐欄相容才可使用分數；不能僅比 detector_id |
-| terminal_rule | enum | v1 僅 abstain；最後分數位於雙門檻內即 Uncertain |
-| constraints | max_far、max_frr、min_coverage 及 metric_definition_version | 正式研究選擇前必填；數字目前 TBD，不杜撰 |
+| terminal_rule | enum | v1 僅 single_threshold_binary；末段 score < decision_threshold 判 Real，score >= decision_threshold 判 Fake |
+| constraints | max_far、max_frr 及 metric_definition_version（binary_v1） | 正式研究選擇前必填；數字目前 TBD，不杜撰 |
 | selection_metadata | validation cohort hash、search config hash、baseline 定義、cost profile、tie-break、資料血緣 | 可重建選擇；禁止使用 Test 選 Policy |
 | policy_hash / lifecycle / live_eligible | hash／draft 或 frozen／boolean | hash 根據不含自身的 canonical payload；live_eligible 必須有實際合約相容證據 |
 
-每階段須 `lower_threshold < upper_threshold`，皆有限且符合 score_unit 範圍；嚴禁相等造成雙重命中。Policy 驗證在開始分析前完成；無效 Policy 不呼叫任何 Detector。實作不提供未驗證的 terminal 強制二元分類。
+前 N−1 階段須 `lower_threshold < upper_threshold`；最後階段只接受 `decision_threshold`。所有門檻須有限且符合該模型 score_unit 範圍。只允許最後一階段為 terminal，且必須存在；單模型 Policy 的唯一階段即 terminal。禁止以 lower=upper 模擬末段。Policy 驗證在開始分析前完成；缺末段門檻、混用欄位或舊 abstain Policy 均須拒絕，無效 Policy 不呼叫任何 Detector。尚無已發布的程式合約，schema_version 仍為 1；實作須依本版型別及 binary_v1 指標版本驗證，不默默接受舊草案。
 
 正式 Quick／Forensic 限制由 Baseline 證據和團隊技術審查凍結，不重新討論已確認產品方向。Forensic 的目標較重視誤判風險；沒有足夠資料或可行候選時顯示未驗證／不可用，不宣稱已更可靠。開發中的 draft Policy 可用於測試展示，但必須標示 experimental，不能冒充研究定稿。
 
@@ -186,14 +186,14 @@ AnalysisResult 包含工作狀態、結果及唯一一份 DecisionTrace；UI 與
 | sample_id、dataset_id、split、input_sha256、selected_face_id、analysis_scope | Live 必有 input_sha256；Replay 保留 dataset／split，缺原始影片 hash 則 null 並註明；人物適用範圍必有 |
 | policy_id、policy_version、policy_hash、policy_snapshot | 保存實際解析的順序、門檻及 score contract，避免未來改設定而無法重建 |
 | final_status | completed 或 unable_to_analyze；queued／running 屬工作狀態，不與 verdict 混用 |
-| verdict | completed 時為 likely_real、likely_fake、uncertain；unable_to_analyze 時必為 null |
-| qualitative_risk、reason_code、reason_text | likely_real→low、likely_fake→high、uncertain→indeterminate；失敗→unavailable；僅描述模型判斷的偽造疑慮 |
+| verdict | completed 時僅為 likely_real 或 likely_fake；unable_to_analyze 時必為 null |
+| qualitative_risk、reason_code、reason_text | likely_real→low、likely_fake→high；失敗→unavailable；僅描述模型判斷的偽造疑慮 |
 | stages | 每個 planned Detector 一筆，保留 stage_index、score contract、實際分數或 null、門檻、action、來源、耗時、error／warnings |
-| stage status／action | status 為 executed、failed、skipped；action 為 exit_real、exit_fake、continue、abstain、error、skip_early_exit 或 skip_prior_error |
+| stage status／action | status 為 executed、failed、skipped；action 為 exit_real、exit_fake、continue、error、skip_early_exit 或 skip_prior_error |
 | timing | wall_ms、preprocess_ms、model_load_ms、adapter_inference_ms、xai_ms（若適用）、simulated_cost_ms 各自記錄；缺測量為 null |
 | warnings／error／evidence_refs | 失敗保留先前已完成階段；跳過 stage 無 score／inference_ms，不能填 0 分 |
 
-最後階段命中門檻時仍可輸出 Real／Fake；全部有效階段都在門檻中間才 abstain。失敗與拒判在 API、UI、Trace、統計中皆分開。
+前段模糊只記 continue，不是最終 verdict。末段依單門檻記 exit_real／exit_fake，reason_code 區分 early_exit 與 terminal_threshold；Trace 保存 stage_type 與實際使用的門檻。API、UI、PDF 與研究結果皆禁止 completed + uncertain／abstain；失敗則 verdict=null。
 
 #### 4.4 Score CSV Schema 與 cohort
 
@@ -214,40 +214,40 @@ AnalysisResult 包含工作狀態、結果及唯一一份 DecisionTrace；UI 與
 
 分割至少以影片／原始來源群組隔離，衍生偽造版本及影格不得跨 split；有 subject_id 時檢查身分隔離。既有模型的訓練集重疊風險亦需揭露，未知不能稱無洩漏。Train 不用於門檻搜尋；Validation 用於搜尋與凍結；Test 在最終評估開封。
 
-### 5. 雙門檻與狀態轉移
+### 5. 前段雙門檻、末段單門檻與狀態轉移
 
 1. 校驗完整 Policy、source、scope 與輸入；無效即返回錯誤，不取分。
 2. 按 ordered_detectors 取得當前 DetectorOutput，驗證版本與 score contract。
-3. `fake_score <= lower_threshold`：輸出 Likely Real，記 exit_real，跳過所有後續階段。
-4. `fake_score >= upper_threshold`：輸出 Likely Fake，記 exit_fake，跳過所有後續階段。
-5. 嚴格介於兩門檻：繼續；若為末階段，completed + uncertain，記 abstain。
+3. 非末階段：`fake_score <= lower_threshold` 輸出 Likely Real；`fake_score >= upper_threshold` 輸出 Likely Fake；分別記 exit_real／exit_fake，跳過所有後續階段。
+4. 非末階段嚴格介於兩門檻：記 continue，才載入／呼叫下一模型。
+5. 最後階段：`fake_score < decision_threshold` 輸出 Likely Real；`fake_score >= decision_threshold` 輸出 Likely Fake（等號歸 Fake），記 exit_real／exit_fake；不再設模糊區。單模型 Policy 直接使用本規則。
 6. 任一必要階段載入／計算／合約驗證失敗：unable_to_analyze + null verdict；保留既有 Trace，後續記 skip_prior_error；不跳過失敗模型繼續猜測，不自動換 Policy。
 
-比較使用未四捨五入的有限數值；顯示四捨五入不參與決策。不引入 epsilon 偷改邊界。前階段在模糊區的分數不平均帶入後階段；每階段使用當前模型分數及其門檻。不同模型 raw score 不直接互相比大小。
+「最後」依所選 Policy 的實際排列位置，與模型名稱無關。若排序改變，末位模型改用自己的單門檻；不預設 SBI 永遠末位。比較使用未四捨五入的有限數值；顯示四捨五入不參與決策。不引入 epsilon 偷改邊界。前階段模糊分數不平均帶入後階段，每階段只用當前模型分數及其門檻。不同模型 raw score 不直接互相比大小。末段門檻由 Validation 選擇並凍結，不預設為 0.5。
 
 ### 6. 研究指標與公平比較
 
 #### 6.1 計數及分母
 
-採需求基準的命名：FAR=真實影片誤判為假；FRR=假影片誤判為真。外部既有 metrics 的命名恰好相反：legacy FAR=假判真，legacy FRR=真判假。匯入舊報告時必須記 legacy_metric_definition 並按公式轉接，不能原封不動搬 far／frr 欄。新系統維持已確認需求的定義，報告必須同時列中文及公式。
+採需求基準的命名：FAR=真實影片誤判為假；FRR=假影片誤判為真。外部既有 metrics 的命名恰好相反：legacy FAR=假判真，legacy FRR=真判假。匯入舊報告須記 legacy_metric_definition 並按公式轉接。新指標版本為 binary_v1，報告同時列中文及公式。
 
-在固定完整有效 cohort 中，令 R、F 為真實／偽造數，N=R+F。Rr／Rf／Ru 為真實樣本被判真／假／拒判；Fr／Ff／Fu 為偽造樣本被判真／假／拒判。D=Rr+Rf+Fr+Ff，E=Rf+Fr。
+固定完整有效 cohort 中，R、F 為真實／偽造數，N=R+F。Rr／Rf 為真實樣本被判真／假；Fr／Ff 為偽造樣本被判真／假。D=Rr+Rf+Fr+Ff=N，E=Rf+Fr。
 
-| 指標 | v1 定義 |
+| 指標 | binary_v1 定義 |
 |---|---|
-| Coverage | D / N |
-| Selective Risk | E / D |
 | FAR（主要約束） | Rf / R |
 | FRR（主要約束） | Fr / F |
-| Real／Fake Coverage | (Rr+Rf)/R；(Fr+Ff)/F |
-| Conditional FAR／FRR（補充） | Rf/(Rr+Rf)；Fr/(Fr+Ff)，必與主 FAR／FRR 分開命名 |
-| Rejection counts | Ru、Fu 及 Ru+Fu |
+| Accuracy | (Rr+Ff) / N |
+| Error Rate | E / N |
+| Coverage（契約診斷） | D / N，非空有效 cohort 必為 1；不再是搜尋目標或約束 |
+| Selective Risk（相容診斷） | E / D，等於 Error Rate；不作獨立 Pareto 維度 |
+| Real／Fake Coverage | 非空對應類別均為 1；Conditional FAR／FRR 等於主 FAR／FRR，無須重複最佳化 |
 
-任何分母為零輸出 null + undefined_reason，不能填 0；缺任一類別的 cohort 不能用來聲稱滿足 FAR／FRR 約束。以 Coverage 最低值避免全拒判換得低錯誤率，並揭露分群 Coverage；不額外杜撰產品未確認的數字。
+任何分母為零輸出 null + undefined_reason，不能填 0；缺任一類別不能聲稱滿足 FAR／FRR 約束。正式二元流程沒有 Ru／Fu 拒判計數；出現非二元 completed 結果即契約違規，不能當作正常拒判統計。
 
-Unable to Analyze 不是 Ru／Fu。正式離線 benchmark 預先要求所有方法需要的 score 完整有效；執行時若出現合約錯誤，該 run 標記 invalid，不刪樣本後繼續比較。Live 評估另外列 N_submitted、N_completed、N_unable、失敗原因與 Completion Rate；Quality 指標在 completed 上計算，並額外報告 D/N_submitted，避免以排除失敗美化服務表現。
+正式離線 benchmark 預先要求所有方法所需 score 完整有效；執行時若出現合約錯誤，該 run 標記 invalid，不刪樣本後繼續比較。Live 另列 N_submitted、N_completed、N_unable、失敗原因及 Completion Rate=N_completed/N_submitted。Quality 指標在 completed 上計算；成功集合的二元 Coverage=1 不代表所有提交都分析成功，另報 D/N_submitted（等於 Completion Rate）。全部失敗時 Quality 指標皆 undefined，不補成正確或錯誤分類。
 
-手算驗收例（純測試資料，不是研究成果）：R=4、F=4，Rr=2、Rf=1、Ru=1、Fr=1、Ff=1、Fu=2。應得 D=5、Coverage=5/8、Selective Risk=2/5、FAR=1/4、FRR=1/4；Conditional FAR=1/3、Conditional FRR=1/2。全拒判時 Coverage=0，Selective Risk=null。
+手算驗收例（純測試資料）：R=4、F=4，Rr=3、Rf=1、Fr=2、Ff=2。D=N=8、Coverage=1、Accuracy=5/8、Error Rate=Selective Risk=3/8、FAR=1/4、FRR=1/2。若另有 2 筆無法分析，則 N_submitted=10、N_completed=8、N_unable=2、Completion Rate=8/10；Quality 指標仍以這 8 筆完成樣本計算。
 
 #### 6.2 Baseline 定義
 
@@ -255,24 +255,24 @@ Unable to Analyze 不是 Ru／Fu。正式離線 benchmark 預先要求所有方�
 
 | 方法 | 執行與決策規則 |
 |---|---|
-| Xception Only、UCF Only、SBI Only | 各模型單階段雙門檻、末端 abstain；門檻以相同 Validation grid／約束選擇 |
-| Always-Run Ensemble | 每樣本固定使用全部三模型；先將每模型 raw score 依 Validation empirical CDF 轉為排序分數，再取三者等權平均，對平均值使用 Validation 選出的雙門檻 |
-| Fixed-Order Cascade | 預先固定 xception→ucf→sbi；在同 grid 上只選門檻，不選順序；此順序是可重現對照，非速度或品質主張 |
-| Optimized Cascade | 三模型全部 3! 個排列與相同門檻搜尋規則；不是只挑單一模型冒充最佳三模型 Cascade |
+| Xception Only、UCF Only、SBI Only | 各模型單階段單門檻二元分類；門檻以相同 Validation grid／約束選擇，等號判 Fake |
+| Always-Run Ensemble | 每樣本固定使用全部三模型；先將每模型 raw score 依 Validation empirical CDF 轉為排序分數，再取三者等權平均，對平均值使用 Validation 選出的單門檻二元分類，等號判 Fake |
+| Fixed-Order Cascade | 預先固定 xception→ucf→sbi；前兩階段雙門檻、末階段單門檻；在同 grid 上只選門檻，不選順序；此順序是可重現對照，非速度或品質主張 |
+| Optimized Cascade | 三模型全部 3! 個排列；每一排列前兩階段雙門檻、末階段單門檻，使用相同門檻搜尋規則；不是只挑單一模型冒充最佳三模型 Cascade |
 
 Ensemble 的 empirical CDF 是技術決定，用於讓 raw／logit 單位不同的分數可融合，不是機率校正。每模型轉換定義為 Validation 分數中小於等於 s 的比例；ties 使用相同右連續值，低於最小為 0，高於最大為 1。轉換必須在 Validation 凍結，Test／Live 不重算 CDF。Ensemble 轉換、平均及門檻版本均記入報告。不能用 Test 分布正規化。此融合定義需在實作前的合約 Review 中確認；不新增模型訓練依賴。
 
-若補充 forced binary Baseline，需另表且明示 Coverage=1、拒判機制不同；不能拿較低 Coverage 的 Cascade 直接宣稱相同風險下勝過 forced binary。主要結論只在共同可行約束下比較；無共同可行解時報告不可比較與曲線，不能硬選勝者。
+六種主要方法皆採最終二元分類，在相同完整 cohort 下 Coverage 均為 1。主要結論只在共同可行約束下比較；無共同可行解時報告不可比較與曲線，不能硬選勝者。
 
 #### 6.3 排序、搜尋及選擇
 
-以 deterministic Grid Search 起步。每模型的候選門檻由 Validation 分數的固定 quantile levels 產生，預設候選 levels 為 0、0.25、0.5、0.75、1，quantile 採排序後索引 floor(q×(n−1))；去除重複值，再列舉 lower<upper 的配對。三模型最多 6×10³=6,000 個 Cascade 候選，適合先 CPU 驗證；實際樣本量尚未知，不保證執行時間。分數完全相同而無合法配對時回報 grid 無候選，不製造門檻。Ensemble 平均分數同樣規則。
+以 deterministic Grid Search 起步。每模型候選值由 Validation 分數的固定 quantile levels 產生，預設 0、0.25、0.5、0.75、1；quantile 採排序後索引 floor(q×(n−1))，去重後最多 5 個值。前段列舉 lower<upper 的配對（每段最多 10 組），末段列舉 decision_threshold 單值（最多 5 組）。三模型最多 6×10²×5=3,000 個 Cascade 候選；固定順序最多 500 個，Single Detector 與 Ensemble 各最多 5 個。此為有限搜尋 grid，不聲稱窮盡所有可行門檻；實際樣本量尚未知，不保證執行時間。前段分數完全相同而無合法配對時，該排列無候選；末段即使只有一個候選值仍合法（等號判 Fake）。每個模型的單門檻／雙門檻候選都保存於 search manifest，Ensemble 平均分數以相同單門檻候選規則搜尋。
 
 搜尋配置可在 Validation 探索期間明確改版、加密，須記錄總候選數、總 runtime 與歷史；不能看到 Test 後擴 grid。v1 不搜尋 stage 數、複雜 terminal rule、模型融合權重、GP 或神經 Policy。
 
-先依 Quick／Forensic 各自 max_far、max_frr、min_coverage 篩可行解；指標未定義不視為可行。Pareto 方向為 FAR、FRR、Selective Risk、cost 越低越好，Coverage 越高越好；一候選在所有維度不差且至少一維嚴格較好才支配另一候選。保留完整候選及非支配集合。
+先依 Quick／Forensic 各自 max_far、max_frr 篩可行解；同時檢查有效 cohort 的二元 Coverage=1；指標未定義不視為可行。Pareto 方向為 FAR、FRR、Error Rate、cost 越低越好；一候選在所有維度不差且至少一維嚴格較好才支配另一候選。保留完整候選及非支配集合。
 
-選擇規則預先凍結：若有可比 timing profile，先最小化平均估計成本；否則最小化平均呼叫數，且只聲稱節省呼叫。平手依 Selective Risk 較低、Coverage 較高、FAR 較低、FRR 較低、最後 canonical Policy key 字典序。Quick／Forensic 採各自約束；數值尚未確認前只輸出探索候選，不宣稱最佳正式 Policy。無可行解時輸出 no_feasible_policy，不自動放寬限制。
+選擇規則預先凍結：若有可比 timing profile，先最小化平均估計成本；否則最小化平均呼叫數，且只聲稱節省呼叫。平手依 Error Rate 較低、FAR 較低、FRR 較低、最後 canonical Policy key 字典序。Quick／Forensic 採各自約束；數值尚未確認前只輸出探索候選，不宣稱最佳正式 Policy。無可行解時輸出 no_feasible_policy，不自動放寬限制。
 
 #### 6.4 成本與可重現證據
 
@@ -300,7 +300,7 @@ Live API wall_ms 從伺服器接受完整上傳並開始處理，到核心結果
 
 輸入錯誤使用共同 envelope：error_code、user_message、retryable、request_id、details（不含機密及本機絕對路徑）。HTTP 413=容量、415=型別、422=參數／模式／Policy／樣本合約、429=忙碌、503=必要能力缺失。202 後的 decode、品質或模型錯誤寫入工作結果 unable_to_analyze，GET 仍 200；不以 polling 的 HTTP 500 代替可解釋分析狀態。
 
-UI 一直顯示 provenance、mode、Policy 版本；Trace 的 skipped 不顯示模型分數。研究 Dashboard 最小版展示凍結 Benchmark 表、Coverage–Risk 及成本比較；互動 Policy Lab 為 P1，只由後端允許 Validation 資料，不能只靠隱藏 Test 按鈕。顯示階段而非虛構完成百分比。
+UI 一直顯示 provenance、mode、Policy 版本；Trace 的 skipped 不顯示模型分數。研究 Dashboard 最小版展示凍結 Benchmark 表、錯誤率–成本 及成本比較；互動 Policy Lab 為 P1，只由後端允許 Validation 資料，不能只靠隱藏 Test 按鈕。顯示階段而非虛構完成百分比。
 
 ### 8. 錯誤、輸入及生命週期
 
@@ -363,19 +363,19 @@ PDF（P1）由不可變 Trace 與可用 evidence 產生，包含 input SHA-256 �
 | ID | 操作／情境 | Pass 條件 |
 |---|---|---|
 | M1 | 從 Web 上傳允許的短 MP4 | 至少一個真實 Detector 對該影片實際推論，provenance=live_inference；有輸入 hash、模型版本與耗時證據 |
-| M2 | 檢查結果 | successful case 顯示三元判斷之一、定性風險、理由與限制；錯誤 case 顯示 Unable to Analyze，不能只用失敗影片交差 M1 |
-| M3 | 打開 Trace | 順序、分數、雙門檻、退出／拒判／失敗原因、版本、來源與未執行階段完整；行為與 CPU 測試吻合 |
+| M2 | 檢查結果 | successful case 只顯示二元判斷之一、定性風險、理由與限制；錯誤 case 顯示 Unable to Analyze，不能只用失敗影片交差 M1 |
+| M3 | 打開 Trace | 順序、分數、前段雙門檻、末段單門檻、退出／繼續／失敗原因、版本、來源與未執行階段完整；行為與 CPU 測試吻合 |
 | M4 | 切換 Quick／Forensic | 建立獨立分析與 Policy 記錄；無效／未就緒時明確說明，不偽裝已驗證高精度模式 |
 | M5 | 切換 Replay | 用三模型對齊的真實 CSV 展示 continue／Early Exit，清楚標 offline_replay；至少一案例可觀察後續 stage 未使用 |
-| M6 | 檢查研究結果 | 六種 Baselines 同 cohort，報告指標計數、拒判、成本來源及可重現設定；正式 Policy 尚未可定時標探索結果 |
+| M6 | 檢查研究結果 | 六種 Baselines 同 cohort，報告二元混淆計數、失敗數、成本來源及可重現設定；正式 Policy 尚未可定時標探索結果 |
 | M7 | 錯誤 smoke | 非 MP4、無可用人臉、Detector 失敗皆可理解且來源／Trace 正確，沒有假分數 |
 | M8 | 交付 | 11/20 凍結，11/23 簡報與影片可依腳本重現；未交付 P1 清單可見 |
 
-三種 verdict 皆由 CPU 行為測試覆蓋，不強迫挑選真實影片使模型剛好產生三種結果。M1／M5 的真實證據不可用 fixture 替代。缺 GPU 時 Replay 與錄影是誠實備援，不構成 Live P0 已通過。
+兩種 verdict 與獨立失敗狀態皆由 CPU 行為測試覆蓋，不強迫挑選真實影片使模型剛好產生所有結果。M1／M5 的真實證據不可用 fixture 替代。缺 GPU 時 Replay 與錄影是誠實備援，不構成 Live P0 已通過。
 
 #### 11.2 12/18 Final Acceptance
 
-保留全部 P0，對已完成的每個額外 Detector 提供真實影片 smoke；目標三模型，但受實際權重和環境限制，展示實際可用集合。兩種正式 Policy 在最終 Test 前凍結；有 Quick／Forensic 各自約束、完整 Baselines、cohort／run manifest、原始計數、Coverage–Risk／成本結果與重現說明。若資料不足以形成正式 Policy／獨立 Test，研究驗收仍標未通過並揭露原因。
+保留全部 P0，對已完成的每個額外 Detector 提供真實影片 smoke；目標三模型，但受實際權重和環境限制，展示實際可用集合。兩種正式 Policy 在最終 Test 前凍結；有 Quick／Forensic 各自約束、完整 Baselines、cohort／run manifest、原始計數、錯誤率–成本／成本結果與重現說明。若資料不足以形成正式 Policy／獨立 Test，研究驗收仍標未通過並揭露原因。
 
 現場展示至少一個已驗證 Live 流程及明確標記的 Replay 備援，報告延遲的量測邊界、冷暖機、平均／P50／P95 與樣本數。效率沒有改善、目標時間未達到也可如實交付研究結果，不捏造達標。
 
@@ -401,9 +401,10 @@ P1 只對宣告已交付項目驗收：時間軸須對應實際影格；Grad-CAM
 |---|---|
 | 等於 lower／upper 及緊鄰兩側 | 等號分別判 Real／Fake；開區間繼續；顯示 round 不改決策 |
 | 首階段退出 | 後續 Provider get_score 與 Live Adapter 初始化均未發生，Trace 有跳過原因及 null 分數 |
-| 全階段模糊 | completed + uncertain；所有有效分數有記錄，無失敗混入 |
+| 前段全部模糊 | 到達末段後依單門檻輸出 completed + likely_real／likely_fake；等號及緊鄰兩側皆測，不存在最終 uncertain |
+| 單模型／末位換模 | 單模型直接單門檻；改排序後末位依自己的 score contract／單門檻判斷；前段 continue 不會成為最終結果 |
 | 排列改變 | 以不同模型衝突且可退出的 fixture，順序變更確實改變首次退出位置 |
-| 無效 Policy | lower>=upper、重複模型、非有限門檻、無效 mode 在取分前拒絕 |
+| 無效 Policy | 前段 lower>=upper、缺末段 decision_threshold、末段混入雙門檻、缺 terminal／terminal 非末位、舊 abstain 規則、重複模型、非有限門檻、無效 mode 在取分前拒絕 |
 | 分數／模型錯誤 | NaN、Infinity、越界 unit_interval、版本錯配、載入錯誤、缺分數→unable_to_analyze，null verdict，保留先前階段 |
 | Live／Replay 等價 | 用相同固定 DetectorOutput，除來源與 runtime 欄位外，stage decision／verdict／退出位置一致 |
 | score 方向 | 反向來源經有版本轉換後，門檻判斷正確；未轉換反向資料不能進 Controller |
@@ -411,7 +412,7 @@ P1 只對宣告已交付項目驗收：時間軸須對應實際影格；Grad-CAM
 
 ### 3. 研究必要案例
 
-既有外部 FAR／FRR 測試使用對稱錯誤數，無法揭露命名顛倒；新系統另用不對稱 fixture：R=3、F=2、Rf=1、Fr=0，應得本規格 FAR=1/3、FRR=0，legacy FAR=0、legacy FRR=1/3。手算上述 8 筆樣本的主指標與 conditional 指標；覆蓋全拒判、空 cohort、缺單一類別、耗時缺值及未定義分母。fixture 只作測試，檔名／manifest 清楚標 synthetic，不進正式圖表。
+既有外部 FAR／FRR 測試使用對稱錯誤數，無法揭露命名顛倒；新系統另用不對稱 fixture：R=3、F=2、Rf=1、Fr=0，應得本規格 FAR=1/3、FRR=0，legacy FAR=0、legacy FRR=1/3。手算上述 8 筆樣本的二元指標及另外 2 筆失敗的 Completion Rate；覆蓋全數進入末段、全部失敗、空 cohort、缺單一類別、耗時缺值及未定義分母；所有有效成功樣本皆有二元結果且 Coverage=1。fixture 只作測試，檔名／manifest 清楚標 synthetic，不進正式圖表。
 
 CSV 測試須覆蓋列順序打亂但 ID 對齊結果相同、重複鍵、跨模型 label／split 衝突、漏分數、frame 未聚合、方向單位不明、不同 subject／video 跨 split、顯式交集排除清單。正式 run 不得在一個方法失敗後縮 cohort。
 
@@ -449,7 +450,7 @@ OOM／Timeout／權重缺失可先以可控故障注入驗證錯誤路由，再�
 | U2 | 外部 score.csv／checkpoint 實體位置與三模型涵蓋範圍 | Repo 路徑已取得，原始碼已查；此 checkout 掃描未找到資產，不否定其他主機或未同步位置存在 | Developer A 取得實際 CSV／設定／資料血緣，B 取得權重位置與 hash；不直接掃描其他磁碟或下載 |
 | U3 | 從資料集評估跨到新 MP4 上傳的整合能力 | 已確認三模型類別與資料集入口、兩模型 Cascade；未見完整新 MP4→結果服務，尚未驗證載入／推論 | B 優先驗證既有 Xception／UCF 路徑可否重用，同時參照 SBI 既有訓練文件；首個 Detector 以實際可用證據選定，保留基準 SBI 優先可行性調查 |
 | U4 | 上游 Python／CUDA／預處理相容性 | CPU Python 3.11 起步，模型環境可能隔離；精確版本未鎖定 | 模型合約、可安裝環境及 smoke，禁止憑記憶捏造版本 |
-| U5 | Quick／Forensic 數值約束 | max_far／max_frr／min_coverage TBD；暫不發布 verified Policy | A 與 B 依 Validation Baseline 凍結約束及選擇紀錄，Test 前完成 |
+| U5 | Quick／Forensic 數值約束 | max_far／max_frr TBD；最終二元 Coverage 固定為 1；暫不發布 verified Policy | A 與 B 依 Validation Baseline 凍結約束及選擇紀錄，Test 前完成 |
 | U6 | 抽樣／聚合／主要人物與品質規則 | 上游與 CSV 語意未確認，錯誤選取會破壞跨來源一致性 | B 凍結設定與指紋，A 驗證 CSV 同一分析範圍；未知則禁止移轉 Policy |
 | U7 | 檔案與時間／保留上限 | TBD，Live readiness gate 要求有限設定 | B 依 decode／GPU／磁碟 smoke 固定 deployment profile |
 | U8 | Ensemble CDF 融合的實際可用性 | 技術選定避免 raw 分數混尺度；需 Validation 樣本與明確版本 | A 於合約 Review 驗證定義及 fixtures；不得改用 Test 做轉換 |
@@ -465,13 +466,13 @@ OOM／Timeout／權重缺失可先以可控故障注入驗證錯誤路由，再�
 | 證據來源 | 已確認內容 | 沿用／修訂規則 |
 |---|---|---|
 | `cascade/inference.py`、`cascade/video_scoring.py` | model.eval + no_grad、pred_dict prob、依影片算術平均、有限 [0,1] 檢查；中間階段門檻含等號 | 可作最薄 Adapter 來源；模型 score 不視為校正機率；XAI 必須在獨立可開梯度流程中執行 |
-| `cascade/test.py`、`cascade/config.py` | 固定 Xception→UCF，只對 uncertain subset 建立 UCF，之後單門檻強制二元；共享設定檢查 | 惰性執行與 cohort 思路可沿用；新 Controller 須任意 Policy 排序、所有階段雙門檻、末端 abstain，不直接沿用舊 final rule |
+| `cascade/test.py`、`cascade/config.py` | 固定 Xception→UCF，只對 uncertain subset 建立 UCF，之後單門檻強制二元；共享設定檢查 | 惰性執行與 cohort 思路可沿用；新 Controller 須任意 Policy 排序、前段雙門檻及末段單門檻；沿用舊 final rule 的二元方向，但明確凍結等號判 Fake、版本與 Trace |
 | `cascade/data/video_identity_dataset.py`、`training/dataset/abstract_dataset.py` | 完整 video_name、batch 對齊、video subset；ID 源於 dataset JSON；Dataset 僅 train／test mode | ID 視 opaque 並加 dataset namespace；產品 Validation 是研究 manifest split，不能因底層叫 test mode 就視為最終 Test，須追溯實際 JSON cohort |
 | `cascade/metrics.py`、`cascade/README.md` | FAR／FRR 與需求命名相反；final metrics 拒絕 UNCERTAIN | 保留 legacy 定義作稽核；新研究指標依本規格公式，不能直接使用 legacy final metrics |
 | `training/test.py` | detector YAML／dataset／weights CLI、frame predictions 三欄 exporter；資料集推論而非上傳服務 | exporter 是資料來源先例；缺 metadata 需以 manifest 還原；不將參數 --weights_path 視為權重已存在 |
 | `training/detectors/__init__.py` 與三模型類別 | registry eager import 多種 Detector；Xception 初始化還載 backbone pretrained；SBI 為 EfficientNet-B4，prob 為 softmax class 1 | 模型環境與 CPU 核心隔離；權重前置清單包含 backbone 與完整 checkpoint，無實體仍不可用 |
 | `preprocessing/preprocess.py` | 可讀影片、抽影格、dlib 對齊、81 點 landmark；逐影格選最大臉 | 可重用算法，不直接當多人追蹤；缺少受控上傳、人物一致性、deadline、清理與錯誤合約，均需後續整合驗收 |
-| `cascade/tests/` | unittest 覆蓋影片均值、門檻等號、identity／subset、共享設定、舊二元 final metrics | 已存在的測試 prior art；新系統對 abstain 與 FAR／FRR 需改 expected 行為；本次未跑測試 |
+| `cascade/tests/` | unittest 覆蓋影片均值、門檻等號、identity／subset、共享設定、舊二元 final metrics | 已存在的測試 prior art；新系統對末段單門檻邊界及 FAR／FRR 命名需驗證 expected 行為；本次未跑測試 |
 | `docs/sbi/` | 歷史文件記載 SBI 訓練／測試與 provenance 缺口 | 只作歷史敘述證據；log／CSV／checkpoint 未在此 checkout 找到，本文不把文件列出的 AUC 當已驗證研究成果 |
 | 全 Repo 資產副檔名掃描 | 排除 .git／.venv，未找到 .csv／.pth／.pt／.ckpt／.safetensors；權重目錄只有 readme | 請使用者提供原始資產所在主機／位置，不新增下載或任意擴大檔案搜索 |
 
@@ -490,3 +491,7 @@ Developer A 沿用 Research & Decision Engine 責任；Developer B 沿用 Infere
 本規格依已安裝 Matt Pocock to-spec 流程撰寫，使用者已確認測試邊界與 GitHub Issues／ready-for-agent 標籤。發布內容須包含完整規格，而非僅外部連結；Tracker 使用規格 Issue，不在此階段建立 implementation tickets。
 
 完成後停在使用者 Review。本 Issue 的 ready-for-agent 是 Skill 要求的 triage 標籤，不覆蓋「等待 Review、未授權實作」狀態。Review 重點為合約、研究分母／融合／選擇規則、資源阻塞與里程碑驗收；只有後續明確授權才能進入 To Tickets。此規格不構成自動執行 Phase 0 的指令。
+
+### 5. 使用者 Review 修訂（v1.2，2026-10-21）
+
+使用者確認最終分類必須二元，最後模型採單門檻。此修訂取代 v1.0／v1.1 的末端 abstain 方案與原產品文件相衝突敘述；前段雙門檻與惰性 Early Exit 保留。同步修訂 Policy、Trace、Live／Replay、Single／Ensemble／Cascade、Validation grid、binary_v1 指標與驗收。Unable to Analyze 保持獨立錯誤狀態。三個既定測試邊界不變；目前只修訂規格，尚未執行模型、應用測試或 To Tickets。
